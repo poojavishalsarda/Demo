@@ -1,6 +1,6 @@
-# PageTurner Bookstore: Agentic eCommerce Backend
+# PageTurner Bookstore: eCommerce Backend
 
-A production-grade backend solution for an eCommerce bookstore utilizing **Agentic Tool-Calling Architecture**, built with **FastAPI**, **SQLAlchemy (Async)**, and **Pydantic v2**.
+A backend REST API for an eCommerce bookstore, built with **Java 21**, **Spring Boot 3.3.5**, **Spring Data JPA**, **Spring Security (JWT)**, and **H2 / PostgreSQL**.
 
 ---
 
@@ -8,55 +8,38 @@ A production-grade backend solution for an eCommerce bookstore utilizing **Agent
 
 ```mermaid
 graph TD
-    Client[Customer / Web UI / Mobile] -->|Chat & API Requests| API[FastAPI Gateway]
-    
-    subgraph Core Engine
-        API --> AgentRouter[Agent Router /api/v1/agent]
-        API --> CatalogRouter[Catalog Router /api/v1/books]
-        API --> OrderRouter[Order Router /api/v1/orders]
-        
-        AgentRouter --> AgentEngine[Agentic Reasoning Loop]
-        AgentEngine --> ToolRegistry[Tool Registry & JSON Schemas]
+    Client[Customer / Web UI / Mobile] -->|REST + JWT| Filter[JwtAuthFilter]
+    Filter --> Controllers
+
+    subgraph Controllers
+        C1[AuthController /api/v1/auth]
+        C2[BookController /api/v1/books]
+        C3[CategoryController /api/v1/categories]
+        C4[CartController /api/v1/cart]
+        C5[OrderController /api/v1/orders]
+        C6[AdminOrderController /api/v1/admin/orders]
     end
 
-    subgraph Agentic Tools Layer
-        ToolRegistry --> T1[search_books]
-        ToolRegistry --> T2[get_book_details]
-        ToolRegistry --> T3[check_inventory]
-        ToolRegistry --> T4[place_order]
-        ToolRegistry --> T5[get_order_status]
-        ToolRegistry --> T6[cancel_order]
-        ToolRegistry --> T7[recommend_books]
-        ToolRegistry --> T8[get_store_policies]
-        ToolRegistry --> T9[validate_coupon_code]
-    end
-
-    subgraph Domain Services & Storage
-        T1 & T2 & T3 & T7 --> BookService[Book & Catalog Service]
-        T4 & T5 & T6 & T9 --> OrderService[Order & Pricing Service]
-        BookService & OrderService --> DB[(Async SQLite / PostgreSQL)]
-    end
+    Controllers --> Services[Service Layer]
+    Services --> Repos[Spring Data JPA Repositories]
+    Repos --> DB[(H2 dev / PostgreSQL prod)]
 ```
 
 ---
 
-## Agentic Tools Capabilities
+## API Endpoints
 
-The backend exposes self-describing Agentic Tools that can be dynamically discovered, validated, and executed by LLMs (OpenAI Function Calling, watsonx, Anthropic Tool Use, or MCP clients):
-
-| Tool Name | Purpose | Key Parameters |
+| Area | Method & Path | Access |
 |:---|:---|:---|
-| `search_books` | Semantic & filtered catalog search | `query`, `category`, `max_price`, `min_rating`, `in_stock_only` |
-| `get_book_details` | Full book metadata & ISBN lookup | `book_id` |
-| `check_inventory` | Real-time stock verification | `book_id` |
-| `place_order` | Validates stock, calculates totals, applies coupons, deducts inventory | `customer_email`, `customer_name`, `shipping_address`, `items`, `coupon_code` |
-| `get_order_status` | Real-time order fulfillment & shipment tracking | `order_id` |
-| `get_customer_orders` | Customer order history lookup | `customer_email` |
-| `cancel_order` | Cancels unfulfilled orders and restores inventory | `order_id` |
-| `recommend_books` | Topic and interest-based book recommendations | `topic_or_genre`, `max_budget`, `limit` |
-| `find_similar_books` | Category & thematic similarity recommendation | `book_id`, `limit` |
-| `get_store_policies` | Knowledge lookup for shipping, returns, refunds, digital delivery | `topic` |
-| `validate_coupon_code` | Promo code validation and discount calculation | `coupon_code` |
+| Auth | `POST /api/v1/auth/register`, `POST /api/v1/auth/login` | Public |
+| Books | `GET /api/v1/books`, `GET /api/v1/books/{id}` | Public |
+| Books | `POST`, `PUT /{id}`, `DELETE /{id}` on `/api/v1/books` | Admin |
+| Categories | `GET /api/v1/categories`, `GET /api/v1/categories/{id}` | Public |
+| Categories | `POST`, `PUT /{id}`, `DELETE /{id}` on `/api/v1/categories` | Admin |
+| Cart | `GET /api/v1/cart`, `DELETE /api/v1/cart` | Authenticated |
+| Cart | `POST /api/v1/cart/items`, `PUT`/`DELETE /api/v1/cart/items/{bookId}` | Authenticated |
+| Orders | `POST /api/v1/orders`, `GET /api/v1/orders`, `GET /api/v1/orders/{id}` | Authenticated |
+| Admin Orders | `GET /api/v1/admin/orders`, `PATCH /api/v1/admin/orders/{id}/status` | Admin |
 
 ---
 
@@ -64,79 +47,84 @@ The backend exposes self-describing Agentic Tools that can be dynamically discov
 
 ```
 .
-├── Dockerfile                   # Red Hat UBI minimal container definition
-├── pyproject.toml               # Modern build & dependency config
-├── requirements.txt             # Pinned package versions
-├── .env.example                 # Environment configuration template
-├── .gitignore                   # Version control exclusions
-├── src/
-│   ├── main.py                  # FastAPI entry point & lifespan handler
-│   ├── config.py                # Pydantic Settings & environment variables
-│   ├── database.py              # Async SQLAlchemy engine & session factory
-│   ├── models/                  # Database models (Book, Order, OrderItem, User)
-│   ├── schemas/                 # Pydantic models (DTOs, Tool Schemas, Chat)
-│   ├── tools/                   # Agentic Tools and Central Tool Registry
-│   ├── agent/                   # Agent Reasoning Loop & Tool Orchestrator
-│   ├── services/                # Business logic (BookService, OrderService)
-│   └── routers/                 # API endpoints (books, orders, agent)
-└── tests/                       # Async test suite
+├── README.md
+├── .gitignore
+└── bookstore-backend/
+    ├── pom.xml                              # Maven build & dependencies
+    └── src/
+        ├── main/
+        │   ├── java/com/ibm/bookstore/
+        │   │   ├── BookstoreApplication.java  # Spring Boot entry point
+        │   │   ├── config/                    # SecurityConfig, DataSeeder
+        │   │   ├── controller/                # REST controllers
+        │   │   ├── dto/                       # Request/response DTOs
+        │   │   ├── exception/                 # Custom exceptions & global handler
+        │   │   ├── model/                     # JPA entities
+        │   │   ├── repository/                # Spring Data repositories
+        │   │   ├── security/                  # JWT filter & service
+        │   │   └── service/                   # Business logic
+        │   └── resources/
+        │       ├── application.yaml           # Default (dev) configuration
+        │       └── application-prod.yaml      # Production configuration
+        └── test/                              # Tests
 ```
 
 ---
 
 ## Getting Started
 
-### 1. Installation
+### Prerequisites
+
+- JDK 21
+- Maven 3.9+
+
+### 1. Build
 
 ```bash
-# Create and activate virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
+cd bookstore-backend
+mvn clean package
 ```
 
-### 2. Configuration
+### 2. Run (development profile, in-memory H2)
 
-Copy the sample environment file:
 ```bash
-cp .env.example .env
+mvn spring-boot:run
 ```
 
-### 3. Run Application
+- API base URL: `http://127.0.0.1:8080/api/v1`
+- H2 console (dev only): `http://127.0.0.1:8080/h2-console`
+- Demo data (categories, books, and an admin user) is seeded automatically in non-`prod` profiles.
+
+### 3. Run (production profile)
+
+Set the following environment variables, then start with the `prod` profile:
+
+| Variable | Purpose |
+|:---|:---|
+| `DATABASE_URL` | PostgreSQL JDBC URL |
+| `DB_USERNAME` / `DB_PASSWORD` | Database credentials |
+| `JWT_SECRET` | Base64-encoded 512-bit JWT signing secret (`openssl rand -base64 64`) |
+| `JWT_EXPIRATION_MS` | Token lifetime (default `3600000`) |
+| `SSL_KEYSTORE_PATH` / `SSL_KEYSTORE_PASSWORD` | PKCS12 keystore for TLS |
+| `PORT` | Server port (default `8080`) |
 
 ```bash
-uvicorn src.main:app --host 127.0.0.1 --port 8000 --reload
+mvn spring-boot:run -Dspring-boot.run.profiles=prod
 ```
 
-- Swagger UI API Docs: `http://127.0.0.1:8000/docs`
-- OpenAPI Specification: `http://127.0.0.1:8000/openapi.json`
-- Healthcheck: `http://127.0.0.1:8000/health`
-
----
-
-## Example Agent Request
-
-### Conversational Query via `/api/v1/agent/chat`
+### 4. Test
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/v1/agent/chat" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "messages": [
-         {"role": "user", "content": "I am looking for books on distributed data systems and want to know your return policy."}
-       ],
-       "max_steps": 5
-     }'
+mvn test
 ```
 
 ---
 
 ## Security Compliance
 
-- **Network Security**: Server binds exclusively to `127.0.0.1` / `localhost`.
-- **Input Sanitization**: Strict Pydantic v2 schemas reject malformed payloads.
-- **ORM & Injection Defense**: Parameterized SQLAlchemy ORM queries prevent SQL injection.
-- **Container Compliance**: Multi-stage Red Hat UBI minimal base image with non-root user execution (`UID 1001`).
-- **Secrets Management**: Configuration via environment variables; secrets never logged or committed.
+- **Network Security**: Server binds exclusively to `127.0.0.1`; production profile enforces TLS 1.2/1.3.
+- **Authentication**: Stateless JWT authentication with role-based access control (`ROLE_USER`, `ROLE_ADMIN`).
+- **Password Storage**: BCrypt (strength 12).
+- **Input Validation**: Bean Validation on request DTOs; centralized `GlobalExceptionHandler` returns generic errors.
+- **Injection Defense**: Spring Data JPA parameterized queries.
+- **Secrets Management**: Configuration via environment variables; the default dev JWT secret must be replaced in production.
