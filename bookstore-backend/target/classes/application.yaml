@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: bookstore-backend
+
+  datasource:
+    url: jdbc:h2:mem:bookstoredb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+
+  h2:
+    console:
+      enabled: true        # disable in production
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: 8080
+  address: 127.0.0.1        # bind to localhost only — never 0.0.0.0
+
+app:
+  jwt:
+    # 512-bit Base64-encoded secret — REPLACE with a securely-generated secret in production
+    # Generate: openssl rand -base64 64
+    secret: ${JWT_SECRET:bW9ja1NlY3JldEZvckRldmVsb3BtZW50T25seU5vdEZvclByb2R1Y3Rpb25Vc2U=}
+    expiration-ms: ${JWT_EXPIRATION_MS:3600000}   # 1 hour
+
+logging:
+  level:
+    root: INFO
+    com.ibm.bookstore: DEBUG
+  pattern:
+    console: '{"timestamp":"%d{ISO8601}","level":"%p","logger":"%logger{36}","message":"%msg"}%n'
